@@ -1,0 +1,44 @@
+#!/bin/bash
+
+export EDITOR="$GIT_REBASE_I_EDITOR"
+
+tempfile="$(tempfile)"
+
+if ! (cat "$1" | grep -q "Rebase .* onto .* (.* command(s))"); then
+    exec editor "$@"
+fi
+
+# how can I get the --graph with only the desired commits?
+
+cat "$1" \
+    | sed -n -e '/^pick/ s/pick \([^ ]*\) .*$/\1/ p' \
+    | tac \
+    | xargs -n 1 git log -1 --oneline --decorate --graph --name-status \
+    | sed -e 's~^\* \([0-9a-f][0-9a-f]* \)~pick \1~' \
+            > "$tempfile"
+
+# with --graph, if there are actually any pipes, use:
+# | sed -e 's~^\([ |\\/*]* \)\([0-9a-f][0-9a-f]* \)~\1pick \2~' \
+
+echo >> "$tempfile"
+echo "# Originial git rebase -i data:" >> "$tempfile"
+cat "$1" | sed -e 's/^/#/' >> "$tempfile"
+
+editor "$tempfile"
+
+# p, pick
+# r, reword
+# e, edit
+# s, squash
+# f, fixup
+# x, exec
+# d, drop
+
+commands='p\|pick\|r\|reword\|e\|edit\|s\|squash\|f\|fixup\|x\|exec\|d\|drop'
+
+cat "$tempfile" \
+    | grep -v "^#" \
+    | grep -v "^ *[|\\/][ |\\/]*[^|\\/*]" \
+    | tac \
+    | sed -e 's~^\([ |\\/*]* \)\(\('"$commands"'\)[0-9a-f][0-9a-f]* \)~\2~' \
+    | tee "$1" >&2

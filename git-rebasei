@@ -1,0 +1,3 @@
+#!/bin/bash
+
+GIT_REBASE_I_EDITOR="${EDITOR:-editor}" EDITOR="git-rebasei-editor" git rebase -i "$@"
