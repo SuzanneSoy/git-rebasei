@@ -4,23 +4,33 @@ tempfile="$(tempfile)"
 
 # how can I get the --graph with only the desired commits?
 
+if [ "$EDITOR" == "emacs" ]; then
+    force_color=--color=always
+else
+    force_color=""
+fi
+
+esccolor="\(\|`printf '\033\[[0-9;]*m\)'`"
+
 cat "$1" \
     | sed -n -e '/^pick/ s/pick \([^ ]*\) .*$/\1/ p' \
     | tac \
-    | xargs -n 1 git log -1 --oneline --decorate --graph --name-status \
-    | sed -e 's~^\* \([0-9a-f][0-9a-f]* \)~pick \1~' \
-            > "$tempfile"
+    | xargs -n 1 git log -1 --oneline --decorate --graph --name-status $force_color \
+    | sed -e "s~^\* ~pick ~" \
+          > "$tempfile"
 
-# with --graph, if there are actually any pipes, use:
+# with --graph, if there are actually any pipes, use (+ color handling):
 # | sed -e 's~^\([ |\\/*]* \)\([0-9a-f][0-9a-f]* \)~\1pick \2~' \
 
 echo >> "$tempfile"
-echo "# Originial git rebase -i data:" >> "$tempfile"
-cat "$1" | sed -e 's/^/#/' >> "$tempfile"
+echo "## Originial git rebase -i data:" >> "$tempfile"
+cat "$1" | sed -e 's/^/## /' -e "s/^## $//" -e "s/^## #/#/" >> "$tempfile"
 
-echo "# GIT file: $1" >> "$tempfile"
-
-editor "$tempfile"
+if [ "$EDITOR" == "emacs" ]; then
+    emacs --eval "(with-current-buffer (find-file \"$tempfile\") (require 'ansi-color) (ansi-color-apply-on-region (point-min) (point-max)) (save-buffer))"
+else
+    editor "$tempfile"
+fi
 
 # p, pick
 # r, reword
