@@ -1,12 +1,6 @@
 #!/bin/bash
 
-export EDITOR="$GIT_REBASE_I_EDITOR"
-
 tempfile="$(tempfile)"
-
-if ! (cat "$1" | grep -q "Rebase .* onto .* (.* command(s))"); then
-    exec editor "$@"
-fi
 
 # how can I get the --graph with only the desired commits?
 
@@ -23,6 +17,8 @@ cat "$1" \
 echo >> "$tempfile"
 echo "# Originial git rebase -i data:" >> "$tempfile"
 cat "$1" | sed -e 's/^/#/' >> "$tempfile"
+
+echo "# GIT file: $1" >> "$tempfile"
 
 editor "$tempfile"
 

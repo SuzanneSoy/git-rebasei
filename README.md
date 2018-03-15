@@ -8,3 +8,9 @@ git-rebasei
 ===========
 
 A small wrapper around git rebase -i to show commits in the same order and with the same information as git log --oneline --decorate
+
+To enable:
+
+    git config --global sequence.editor git-rebasei-editor
+
+and make sure that `git-rebasei-editor` is in your `$PATH`
