@@ -4,7 +4,12 @@ tempfile="$(tempfile)"
 
 # how can I get the --graph with only the desired commits?
 
-if [ "$EDITOR" == "emacs" ]; then
+if ! editor="$(git config --get git-rebasei-editor.editor)"; then
+    editor="${EDITOR:-editor}"
+fi
+
+
+if [ "$editor" == "emacs" ]; then
     force_color=--color=always
 else
     force_color=""
@@ -12,12 +17,33 @@ fi
 
 esccolor="\(\|`printf '\033\[[0-9;]*m\)'`"
 
+process_input_lines() {
+    while IFS=$'\n' read line; do
+        if [[ "$line" =~ ^( *#) ]]; then
+            : # TODO: should print the comments inline, and move the first block of comments to the end.
+        elif [[ "$line" =~ ^( *)$ ]]; then
+            echo "$line"
+        elif [ "${line:0:5}" = "exec " ]; then
+            echo "$line"
+        elif [[ "$line" =~ ^([^# ]+ +)([^ ]+)( +.*)$ ]]; then
+            # TODO: try to recreate a --graph, if possible?
+            # This would require advanced editing of the history, however.
+            echo -n "${BASH_REMATCH[1]}"
+            git log -1 --oneline --decorate --name-status $force_color \
+                "${BASH_REMATCH[2]}" -- \
+            | sed -e '2,$ s/^/| /'
+        else
+            echo "#??# $line"
+        fi
+    done
+}
+
+# The sed command discards the blank lines at the beginning
 cat "$1" \
-    | sed -n -e '/^pick/ s/pick \([^ ]*\) .*$/\1/ p' \
     | tac \
-    | xargs -n 1 git log -1 --oneline --decorate --graph --name-status $force_color \
-    | sed -e "s~^\* ~pick ~" \
-          > "$tempfile"
+    | process_input_lines \
+    | sed -r -n -e '/^.+$/,$p' \
+    > "$tempfile"
 
 # with --graph, if there are actually any pipes, use (+ color handling):
 # | sed -e 's~^\([ |\\/*]* \)\([0-9a-f][0-9a-f]* \)~\1pick \2~' \
@@ -26,10 +52,12 @@ echo >> "$tempfile"
 echo "## Originial git rebase -i data:" >> "$tempfile"
 cat "$1" | sed -e 's/^/## /' -e "s/^## $//" -e "s/^## #/#/" >> "$tempfile"
 
-if [ "$EDITOR" == "emacs" ]; then
+if [ "$editor" == "emacs" ]; then
     emacs --eval "(with-current-buffer (find-file \"$tempfile\") (require 'ansi-color) (ansi-color-apply-on-region (point-min) (point-max)) (save-buffer))"
 else
-    editor "$tempfile"
+    # Allow spaces in the git-rebasei-editor.editor config and in $EDITOR
+    # TODO: check that the spaces can actually be present in $EDITOR
+    $editor "$tempfile"
 fi
 
 # p, pick
